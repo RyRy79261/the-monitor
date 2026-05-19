@@ -123,25 +123,36 @@ describe("buildBom", () => {
     }
   });
 
-  it("mount corner posts extend up to the body's top plane", () => {
+  it("rear mount posts cap on body top, front mount posts cap on the front face", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 20;
     cfg.includeMount = true;
     const bom = buildBom(cfg);
-    const { ftl, ftr, rtl } = bom.corners;
+    const { fbl, fbr, ftl, ftr, rtl } = bom.corners;
     const sub = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
     const cross = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [
       a[1] * b[2] - a[2] * b[1],
       a[2] * b[0] - a[0] * b[2],
       a[0] * b[1] - a[1] * b[0],
     ];
-    const n = cross(sub(ftr, ftl), sub(rtl, ftl));
+    const nTop = cross(sub(ftr, ftl), sub(rtl, ftl));
+    const nFront = cross(sub(fbr, fbl), sub(ftl, fbl));
+    const dotPlane = (n: [number, number, number], ref: [number, number, number], p: [number, number, number]) =>
+      n[0] * (p[0] - ref[0]) + n[1] * (p[1] - ref[1]) + n[2] * (p[2] - ref[2]);
     const posts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
+    expect(posts.length).toBe(4);
     for (const post of posts) {
       const top = post.start[1] > post.end[1] ? post.start : post.end;
-      const dot = n[0] * (top[0] - ftl[0]) + n[1] * (top[1] - ftl[1]) + n[2] * (top[2] - ftl[2]);
+      const isRear = post.name.endsWith("RL") || post.name.endsWith("RR");
+      const dot = isRear ? dotPlane(nTop, ftl, top) : dotPlane(nFront, fbl, top);
       expect(Math.abs(dot)).toBeLessThan(1e-6);
+      // Front posts should be shorter than rear posts because they're clipped
+      // by the front face plane instead of reaching the roof.
+      if (!isRear) {
+        const rear = posts.find((p) => p.name === post.name.replace("F", "R"))!;
+        expect(post.lengthM).toBeLessThan(rear.lengthM);
+      }
     }
   });
 

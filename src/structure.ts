@@ -249,20 +249,24 @@ export function buildBom(cfg: Config): Bom {
     });
   }
 
-  // Mount pedestal — rectangular footprint on the ground. The four corner
+  // Mount pedestal — rectangular footprint on the ground. The two REAR corner
   // posts continue all the way up to the body's top plane so they act as full-
-  // height structural columns (CRT body braced corner-to-corner). The mount
-  // CLADDING terminates at the body-bottom plane via "shoulder" rails — that
-  // boundary is where the pedestal stops being visible from outside.
+  // height structural columns. The two FRONT posts terminate where they hit
+  // the body's front face plane — going any higher would push them out
+  // through the (backward-tilted) front panel. The mount CLADDING terminates
+  // at the body-bottom plane via "shoulder" rails — that boundary is where
+  // the pedestal stops being visible from outside.
   if (cfg.includeMount && cfg.mountHeightM > 0) {
     const nB = cross(sub(fbr, fbl), sub(rbl, fbl));
     const nT = cross(sub(ftr, ftl), sub(rtl, ftl));
+    const nF = cross(sub(fbr, fbl), sub(ftl, fbl));
     const planeY = (n: V3, ref: V3) => (x: number, z: number): number => {
       if (Math.abs(n[1]) < 1e-9) return ref[1];
       return ref[1] - (n[0] * (x - ref[0]) + n[2] * (z - ref[2])) / n[1];
     };
     const bottomY = planeY(nB, fbl);
     const topY = planeY(nT, ftl);
+    const frontY = planeY(nF, fbl);
     const xL = -mountW / 2;
     const xR = +mountW / 2;
     const zF = mountCz + mountD / 2;
@@ -276,23 +280,21 @@ export function buildBom(cfg: Config): Bom {
     const mtr: V3 = [xR, bottomY(xR, zF), zF];
     const mTkl: V3 = [xL, bottomY(xL, zR), zR];
     const mTkr: V3 = [xR, bottomY(xR, zR), zR];
-    const mRoofFL: V3 = [xL, topY(xL, zF), zF];
-    const mRoofFR: V3 = [xR, topY(xR, zF), zF];
+    // Front posts cap at the front face (no clipping through the panel);
+    // rear posts cap at the body top plane.
+    const mRoofFL: V3 = [xL, frontY(xL, zF), zF];
+    const mRoofFR: V3 = [xR, frontY(xR, zF), zF];
     const mRoofRL: V3 = [xL, topY(xL, zR), zR];
     const mRoofRR: V3 = [xR, topY(xR, zR), zR];
 
-    // Full-height corner posts (ground → body top)
     push("Mount post FL", cfg.frameBoardId, mbl, mRoofFL);
     push("Mount post FR", cfg.frameBoardId, mbr, mRoofFR);
     push("Mount post RL", cfg.frameBoardId, mkl, mRoofRL);
     push("Mount post RR", cfg.frameBoardId, mkr, mRoofRR);
-    // Shoulder rails — at the body-bottom plane, where the pedestal cladding
-    // terminates against the body.
     push("Mount shoulder front", cfg.frameBoardId, mtl, mtr);
     push("Mount shoulder rear", cfg.frameBoardId, mTkl, mTkr);
     push("Mount shoulder left", cfg.frameBoardId, mtl, mTkl);
     push("Mount shoulder right", cfg.frameBoardId, mtr, mTkr);
-    // Sill rails on the ground
     push("Mount sill front", cfg.frameBoardId, mbl, mbr);
     push("Mount sill rear", cfg.frameBoardId, mkl, mkr);
     push("Mount sill left", cfg.frameBoardId, mbl, mkl);
