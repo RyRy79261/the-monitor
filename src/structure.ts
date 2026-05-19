@@ -94,14 +94,30 @@ export function buildBom(cfg: Config): Bom {
     [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => rotX(p, -rad)) as [V3, V3, V3, V3, V3, V3, V3, V3];
   }
 
-  // Mount pedestal: a rectangular box on the ground that rises vertically until
-  // it makes contact with the body. The body is lifted so its lowest bottom
-  // corner rests on the mount's top face at exactly `mountHeightM` above the
-  // ground — so the pedestal always touches the structure, regardless of tilt.
-  const mountH = cfg.includeMount ? Math.max(0, cfg.mountHeightM) : 0;
-  if (mountH > 0) {
-    const minBottomY = Math.min(fbl[1], fbr[1], rbl[1], rbr[1]);
-    const lift = mountH - minBottomY;
+  // Mount pedestal: a rectangular box on the ground that rises up to the body.
+  // The mount TOP follows the body's (planar) bottom face so the pedestal stays
+  // in contact with the body everywhere within its footprint — no gap, even
+  // when the body is tilted backward. `mountHeightM` sets the height of the
+  // lowest mount post (the body is lifted so that the lowest mount-top corner
+  // sits at exactly mountHeightM above the ground).
+  const mountInset = Math.max(0, cfg.mountInsetM);
+  const mountW = Math.max(0.2, Math.min(fW, rW) - 2 * mountInset);
+  const mountD = Math.max(0.2, d - 2 * mountInset);
+  const mountCz = -d / 2;
+  if (cfg.includeMount && cfg.mountHeightM > 0) {
+    // Body bottom plane normal from three of the bottom corners (all 4 are
+    // coplanar). Solve for y on the plane at arbitrary (x, z).
+    const nB = cross(sub(fbr, fbl), sub(rbl, fbl));
+    const planeY = (x: number, z: number): number => {
+      if (Math.abs(nB[1]) < 1e-9) return fbl[1];
+      return fbl[1] - (nB[0] * (x - fbl[0]) + nB[2] * (z - fbl[2])) / nB[1];
+    };
+    const xL = -mountW / 2;
+    const xR = +mountW / 2;
+    const zF = mountCz + mountD / 2;
+    const zR = mountCz - mountD / 2;
+    const minTop = Math.min(planeY(xL, zF), planeY(xR, zF), planeY(xL, zR), planeY(xR, zR));
+    const lift = cfg.mountHeightM - minTop;
     if (lift !== 0) {
       const dy: V3 = [0, lift, 0];
       [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => add(p, dy)) as [V3, V3, V3, V3, V3, V3, V3, V3];
@@ -233,22 +249,27 @@ export function buildBom(cfg: Config): Bom {
     });
   }
 
-  // Mount pedestal — rectangular box from ground (y=0) up to the body's lowest
-  // bottom corner (y = mountH). Footprint is inset on each side from the body's
-  // bottom face, so the mount is clearly smaller than the body in plan.
-  if (cfg.includeMount && mountH > 0) {
-    const inset = Math.max(0, cfg.mountInsetM);
-    const mW = Math.max(0.2, Math.min(fW, rW) - 2 * inset);
-    const mD = Math.max(0.2, d - 2 * inset);
-    const cz = -d / 2;
-    const mbl: V3 = [-mW / 2, 0, cz + mD / 2];
-    const mbr: V3 = [+mW / 2, 0, cz + mD / 2];
-    const mkl: V3 = [-mW / 2, 0, cz - mD / 2];
-    const mkr: V3 = [+mW / 2, 0, cz - mD / 2];
-    const mtl: V3 = [-mW / 2, mountH, cz + mD / 2];
-    const mtr: V3 = [+mW / 2, mountH, cz + mD / 2];
-    const mTkl: V3 = [-mW / 2, mountH, cz - mD / 2];
-    const mTkr: V3 = [+mW / 2, mountH, cz - mD / 2];
+  // Mount pedestal — rectangular footprint on the ground, top vertices follow
+  // the (now-lifted) body bottom plane so the mount meets the body cleanly.
+  if (cfg.includeMount && cfg.mountHeightM > 0) {
+    const nB = cross(sub(fbr, fbl), sub(rbl, fbl));
+    const planeY = (x: number, z: number): number => {
+      if (Math.abs(nB[1]) < 1e-9) return fbl[1];
+      return fbl[1] - (nB[0] * (x - fbl[0]) + nB[2] * (z - fbl[2])) / nB[1];
+    };
+    const xL = -mountW / 2;
+    const xR = +mountW / 2;
+    const zF = mountCz + mountD / 2;
+    const zR = mountCz - mountD / 2;
+
+    const mbl: V3 = [xL, 0, zF];
+    const mbr: V3 = [xR, 0, zF];
+    const mkl: V3 = [xL, 0, zR];
+    const mkr: V3 = [xR, 0, zR];
+    const mtl: V3 = [xL, planeY(xL, zF), zF];
+    const mtr: V3 = [xR, planeY(xR, zF), zF];
+    const mTkl: V3 = [xL, planeY(xL, zR), zR];
+    const mTkr: V3 = [xR, planeY(xR, zR), zR];
 
     push("Mount post FL", cfg.frameBoardId, mbl, mtl);
     push("Mount post FR", cfg.frameBoardId, mbr, mtr);

@@ -71,25 +71,59 @@ describe("buildBom", () => {
     expect(bom.cladding.some((p) => p.name === "Bottom panel")).toBe(false);
   });
 
-  it("keeps frame piece lengths invariant under pure tilt", () => {
+  it("keeps shell + base frame lengths invariant under pure tilt", () => {
+    // Mount pieces conform to the tilted body bottom plane, so their lengths
+    // change with tilt. Everything else (shell edges, base joists) is rigid
+    // under rotation.
     const cfg = defaultConfig();
     cfg.tiltDeg = 0;
-    const flat = buildBom(cfg);
+    const flat = buildBom(cfg).frame.filter((p) => !p.name.startsWith("Mount"));
     cfg.tiltDeg = 20;
-    const tilted = buildBom(cfg);
-    for (let i = 0; i < flat.frame.length; i++) {
-      expect(tilted.frame[i].lengthM).toBeCloseTo(flat.frame[i].lengthM, 6);
+    const tilted = buildBom(cfg).frame.filter((p) => !p.name.startsWith("Mount"));
+    expect(tilted.length).toBe(flat.length);
+    for (let i = 0; i < flat.length; i++) {
+      expect(tilted[i].lengthM).toBeCloseTo(flat[i].lengthM, 6);
     }
   });
 
-  it("lowest body corner rests on the mount top at mountHeightM", () => {
+  it("lowest mount post equals mountHeightM and body bottom stays above ground", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 25;
     cfg.includeMount = true;
-    const { corners } = buildBom(cfg);
+    const bom = buildBom(cfg);
+    const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
+    const postTops = mountPosts.map((p) => Math.max(p.start[1], p.end[1]));
+    expect(Math.min(...postTops)).toBeCloseTo(cfg.mountHeightM, 6);
+    // Body must clear the ground even though the lowest mount post is the
+    // shortest contact point.
+    const { corners } = bom;
     const minBottomY = Math.min(corners.fbl[1], corners.fbr[1], corners.rbl[1], corners.rbr[1]);
-    expect(minBottomY).toBeCloseTo(cfg.mountHeightM, 6);
+    expect(minBottomY).toBeGreaterThan(0);
+  });
+
+  it("mount top corners lie on the body's bottom plane (no gap)", () => {
+    const cfg = defaultConfig();
+    cfg.variant = "tilted";
+    cfg.tiltDeg = 20;
+    cfg.includeMount = true;
+    const bom = buildBom(cfg);
+    const { fbl, fbr, rbl } = bom.corners;
+    // Body bottom plane normal
+    const sub = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const cross = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+    const n = cross(sub(fbr, fbl), sub(rbl, fbl));
+    const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
+    for (const post of mountPosts) {
+      const top = post.start[1] > post.end[1] ? post.start : post.end;
+      // Plane equation: n · (top - fbl) == 0
+      const dot = n[0] * (top[0] - fbl[0]) + n[1] * (top[1] - fbl[1]) + n[2] * (top[2] - fbl[2]);
+      expect(Math.abs(dot)).toBeLessThan(1e-6);
+    }
   });
 
   it("front-bottom edge sits on the ground when no mount and no tilt", () => {
@@ -130,16 +164,14 @@ describe("buildBom", () => {
     const bom = buildBom(cfg);
     const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
     expect(mountPosts.length).toBe(4);
-    // Mount X extent should be (min(fW,rW) - 2*inset) / 2 = (1.6 - 1.0) / 2 = 0.3.
     const expectedHalfW = (Math.min(cfg.frontWidthM, cfg.rearWidthM) - 2 * cfg.mountInsetM) / 2;
     const mountXs = mountPosts.flatMap((p) => [p.start[0], p.end[0]]);
     const mountMaxAbsX = Math.max(...mountXs.map(Math.abs));
     expect(mountMaxAbsX).toBeCloseTo(expectedHalfW, 6);
-    // Mount posts run from ground (y=0) up to mountHeightM.
+    // Bottom of every mount post is on the ground.
     for (const post of mountPosts) {
-      const ys = [post.start[1], post.end[1]].sort((a, b) => a - b);
-      expect(ys[0]).toBeCloseTo(0, 6);
-      expect(ys[1]).toBeCloseTo(cfg.mountHeightM, 6);
+      const minY = Math.min(post.start[1], post.end[1]);
+      expect(minY).toBeCloseTo(0, 6);
     }
   });
 });

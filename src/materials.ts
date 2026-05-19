@@ -59,10 +59,13 @@ export function defaultConfig(): Config {
     includeBase: true,
     includeFascia: true,
     includeRearPanel: true,
-    includeFloorPanel: true,
+    includeFloorPanel: false,
     includeMount: true,
     mountHeightM: 0.6,
-    mountInsetM: 0.5,
+    mountInsetM: 0.3,
+
+    humanShown: true,
+    humanHeightM: 1.75,
 
     wastePct: 12,
     fastenersPct: 6,

@@ -95,6 +95,12 @@ export class CrtScene {
     this.human.visible = v;
   }
 
+  setHumanHeight(heightM: number) {
+    // The base figure is sized for ~1.75 m tall; scale the group uniformly.
+    const k = Math.max(0.1, heightM) / 1.75;
+    this.human.scale.setScalar(k);
+  }
+
   render(bom: Bom) {
     // Clear previous geometry — dispose to free GPU memory.
     while (this.buildGroup.children.length) {

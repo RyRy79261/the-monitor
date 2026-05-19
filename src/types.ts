@@ -44,6 +44,9 @@ export interface Config {
   mountHeightM: number;
   mountInsetM: number;
 
+  humanShown: boolean;
+  humanHeightM: number;
+
   wastePct: number;
   fastenersPct: number;
   finishPct: number;

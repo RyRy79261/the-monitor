@@ -163,8 +163,12 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     panel.append(toggleRow("Pedestal mount", "includeMount"));
 
     panel.append(sectionTitle("Mount / pedestal"));
-    panel.append(numericRow({ label: "Mount height", key: "mountHeightM", min: 0.1, max: 1.5, step: 0.05, unit: " m" }));
+    panel.append(numericRow({ label: "Mount height (low corner)", key: "mountHeightM", min: 0.1, max: 1.5, step: 0.05, unit: " m" }));
     panel.append(numericRow({ label: "Mount inset (per side)", key: "mountInsetM", min: 0.05, max: 1.0, step: 0.05, unit: " m" }));
+
+    panel.append(sectionTitle("Human scale reference"));
+    panel.append(toggleRow("Show human", "humanShown"));
+    panel.append(numericRow({ label: "Human height", key: "humanHeightM", min: 0.6, max: 2.2, step: 0.05, unit: " m" }));
 
     panel.append(sectionTitle("Cost loadings (%)"));
     panel.append(numericRow({ label: "Waste / offcuts", key: "wastePct", min: 0, max: 40, step: 1, unit: "%" }));
