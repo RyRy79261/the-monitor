@@ -205,6 +205,30 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     actions.append(csv, json, print);
     bomEl.append(actions);
 
+    const panelVisTitle = document.createElement("h3");
+    panelVisTitle.textContent = "Panel visibility";
+    bomEl.append(panelVisTitle);
+    for (const p of bom.cladding) {
+      const row = document.createElement("div");
+      row.className = "row toggle";
+      const lab = document.createElement("label");
+      lab.textContent = p.name;
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !p.hidden;
+      cb.onchange = () => {
+        const list = cfg.hiddenPanels;
+        if (cb.checked) {
+          cfg.hiddenPanels = list.filter((n) => n !== p.name);
+        } else if (!list.includes(p.name)) {
+          cfg.hiddenPanels = [...list, p.name];
+        }
+        onChange();
+      };
+      row.append(lab, cb);
+      bomEl.append(row);
+    }
+
     const title = document.createElement("h3");
     title.textContent = "Bill of materials";
     bomEl.append(title);

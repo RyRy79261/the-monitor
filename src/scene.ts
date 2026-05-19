@@ -114,7 +114,10 @@ export class CrtScene {
       });
     }
     for (const board of bom.frame) this.buildGroup.add(makeBoardMesh(board));
-    for (const panel of bom.cladding) this.buildGroup.add(makePanelMesh(panel));
+    for (const panel of bom.cladding) {
+      if (panel.hidden) continue;
+      this.buildGroup.add(makePanelMesh(panel));
+    }
     this.buildGroup.add(makeScreenMesh(bom));
     // Re-position the human standing 0.8m forward of the front face, off to the side.
     this.human.position.set(bom.corners.fbr[0] + 0.6, 0, bom.corners.fbr[2] + 0.8);

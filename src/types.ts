@@ -47,6 +47,9 @@ export interface Config {
   humanShown: boolean;
   humanHeightM: number;
 
+  /** Names of cladding panels to hide from render and BoM. */
+  hiddenPanels: string[];
+
   wastePct: number;
   fastenersPct: number;
   finishPct: number;
@@ -75,6 +78,9 @@ export interface CladdingPanel {
   areaM2: number;
   /** Area used for cost (full bounding rect on front panel; equals areaM2 elsewhere). */
   billedAreaM2: number;
+  /** Hidden panels are kept in the BoM listing so the UI can offer a visibility
+   *  toggle, but they are excluded from render and pricing. */
+  hidden?: boolean;
 }
 
 export interface Bom {

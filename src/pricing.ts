@@ -64,6 +64,7 @@ function frameLines(bom: Bom, cfg: Config): CostLine[] {
 function claddingLines(bom: Bom, cfg: Config): CostLine[] {
   const byMat = new Map<string, { areaM2: number; panels: number }>();
   for (const p of bom.cladding) {
+    if (p.hidden) continue;
     const g = byMat.get(p.materialId) ?? { areaM2: 0, panels: 0 };
     g.areaM2 += p.billedAreaM2;
     g.panels += 1;

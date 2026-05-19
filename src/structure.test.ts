@@ -86,30 +86,27 @@ describe("buildBom", () => {
     }
   });
 
-  it("lowest mount post equals mountHeightM and body bottom stays above ground", () => {
+  it("lowest mount shoulder equals mountHeightM and body bottom clears ground", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 25;
     cfg.includeMount = true;
     const bom = buildBom(cfg);
-    const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
-    const postTops = mountPosts.map((p) => Math.max(p.start[1], p.end[1]));
-    expect(Math.min(...postTops)).toBeCloseTo(cfg.mountHeightM, 6);
-    // Body must clear the ground even though the lowest mount post is the
-    // shortest contact point.
+    const shoulders = bom.frame.filter((p) => p.name.startsWith("Mount shoulder"));
+    const ys = shoulders.flatMap((r) => [r.start[1], r.end[1]]);
+    expect(Math.min(...ys)).toBeCloseTo(cfg.mountHeightM, 6);
     const { corners } = bom;
     const minBottomY = Math.min(corners.fbl[1], corners.fbr[1], corners.rbl[1], corners.rbr[1]);
     expect(minBottomY).toBeGreaterThan(0);
   });
 
-  it("mount top corners lie on the body's bottom plane (no gap)", () => {
+  it("mount shoulders lie on the body's bottom plane (no gap)", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 20;
     cfg.includeMount = true;
     const bom = buildBom(cfg);
     const { fbl, fbr, rbl } = bom.corners;
-    // Body bottom plane normal
     const sub = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
     const cross = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [
       a[1] * b[2] - a[2] * b[1],
@@ -117,13 +114,47 @@ describe("buildBom", () => {
       a[0] * b[1] - a[1] * b[0],
     ];
     const n = cross(sub(fbr, fbl), sub(rbl, fbl));
-    const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
-    for (const post of mountPosts) {
+    const shoulders = bom.frame.filter((p) => p.name.startsWith("Mount shoulder"));
+    for (const rail of shoulders) {
+      for (const pt of [rail.start, rail.end]) {
+        const dot = n[0] * (pt[0] - fbl[0]) + n[1] * (pt[1] - fbl[1]) + n[2] * (pt[2] - fbl[2]);
+        expect(Math.abs(dot)).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it("mount corner posts extend up to the body's top plane", () => {
+    const cfg = defaultConfig();
+    cfg.variant = "tilted";
+    cfg.tiltDeg = 20;
+    cfg.includeMount = true;
+    const bom = buildBom(cfg);
+    const { ftl, ftr, rtl } = bom.corners;
+    const sub = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const cross = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+    const n = cross(sub(ftr, ftl), sub(rtl, ftl));
+    const posts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
+    for (const post of posts) {
       const top = post.start[1] > post.end[1] ? post.start : post.end;
-      // Plane equation: n · (top - fbl) == 0
-      const dot = n[0] * (top[0] - fbl[0]) + n[1] * (top[1] - fbl[1]) + n[2] * (top[2] - fbl[2]);
+      const dot = n[0] * (top[0] - ftl[0]) + n[1] * (top[1] - ftl[1]) + n[2] * (top[2] - ftl[2]);
       expect(Math.abs(dot)).toBeLessThan(1e-6);
     }
+  });
+
+  it("respects hiddenPanels — listed panels are flagged and excluded from pricing", () => {
+    const cfg = defaultConfig();
+    cfg.hiddenPanels = ["Top panel", "Mount front panel"];
+    const bom = buildBom(cfg);
+    const top = bom.cladding.find((p) => p.name === "Top panel");
+    const mountFront = bom.cladding.find((p) => p.name === "Mount front panel");
+    expect(top?.hidden).toBe(true);
+    expect(mountFront?.hidden).toBe(true);
+    const left = bom.cladding.find((p) => p.name === "Left panel");
+    expect(left?.hidden).toBeFalsy();
   });
 
   it("front-bottom edge sits on the ground when no mount and no tilt", () => {
