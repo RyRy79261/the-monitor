@@ -36,8 +36,10 @@ describe("buildBom", () => {
     const cfg = defaultConfig();
     const bom = buildBom(cfg);
     // 4 front + 4 rear + 4 struts + 4 screen surround = 16 shell pieces.
-    // Base contributes 4 perimeter rails + N joists when includeBase = true.
-    const shellPieces = bom.frame.filter((p) => !p.name.startsWith("Base")).length;
+    // Base and Mount contribute their own pieces when enabled.
+    const shellPieces = bom.frame.filter(
+      (p) => !p.name.startsWith("Base") && !p.name.startsWith("Mount"),
+    ).length;
     expect(shellPieces).toBe(16);
   });
 
@@ -80,12 +82,55 @@ describe("buildBom", () => {
     }
   });
 
-  it("front-bottom edge sits on the ground at y = 0", () => {
+  it("front-bottom edge sits on the mount top when the mount is enabled", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 25;
+    cfg.includeMount = true;
+    const { corners } = buildBom(cfg);
+    expect(corners.fbl[1]).toBeCloseTo(cfg.mountHeightM, 6);
+    expect(corners.fbr[1]).toBeCloseTo(cfg.mountHeightM, 6);
+  });
+
+  it("front-bottom edge sits on the ground when no mount", () => {
+    const cfg = defaultConfig();
+    cfg.variant = "tilted";
+    cfg.tiltDeg = 25;
+    cfg.includeMount = false;
     const { corners } = buildBom(cfg);
     expect(corners.fbl[1]).toBeCloseTo(0, 6);
     expect(corners.fbr[1]).toBeCloseTo(0, 6);
+  });
+
+  it("tilts backward so the top of the front face moves toward -Z", () => {
+    const cfg = defaultConfig();
+    cfg.variant = "tilted";
+    cfg.tiltDeg = 20;
+    cfg.includeMount = false;
+    const { corners } = buildBom(cfg);
+    // Top-front corner (initially at z=0) should rotate to negative Z when the
+    // shell tilts backward away from the viewer.
+    expect(corners.ftl[2]).toBeLessThan(-0.1);
+    expect(corners.ftr[2]).toBeLessThan(-0.1);
+  });
+
+  it("places the mount under the body, smaller than the bottom face", () => {
+    const cfg = defaultConfig();
+    cfg.includeMount = true;
+    cfg.mountWidthFrac = 0.4;
+    cfg.mountDepthFrac = 0.4;
+    const bom = buildBom(cfg);
+    const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
+    expect(mountPosts.length).toBe(4);
+    // Mount extents in X should be smaller than the narrower rear width.
+    const mountXs = mountPosts.flatMap((p) => [p.start[0], p.end[0]]);
+    const mountMaxAbsX = Math.max(...mountXs.map(Math.abs));
+    expect(mountMaxAbsX).toBeLessThan(cfg.rearWidthM / 2);
+    // Mount posts go from ground to mount height.
+    for (const post of mountPosts) {
+      const ys = [post.start[1], post.end[1]].sort((a, b) => a - b);
+      expect(ys[0]).toBeCloseTo(0, 6);
+      expect(ys[1]).toBeCloseTo(cfg.mountHeightM, 6);
+    }
   });
 });

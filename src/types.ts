@@ -40,6 +40,10 @@ export interface Config {
   includeFascia: boolean;
   includeRearPanel: boolean;
   includeFloorPanel: boolean;
+  includeMount: boolean;
+  mountHeightM: number;
+  mountWidthFrac: number;
+  mountDepthFrac: number;
 
   wastePct: number;
   fastenersPct: number;

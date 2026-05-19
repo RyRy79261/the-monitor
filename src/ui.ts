@@ -158,6 +158,12 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     panel.append(toggleRow("Front fascia (bezel)", "includeFascia"));
     panel.append(toggleRow("Rear cladding panel", "includeRearPanel"));
     panel.append(toggleRow("Bottom cladding panel", "includeFloorPanel"));
+    panel.append(toggleRow("Pedestal mount", "includeMount"));
+
+    panel.append(sectionTitle("Mount / pedestal"));
+    panel.append(numericRow({ label: "Mount height", key: "mountHeightM", min: 0.05, max: 0.6, step: 0.01, unit: " m" }));
+    panel.append(numericRow({ label: "Mount width (frac of rear)", key: "mountWidthFrac", min: 0.2, max: 0.9, step: 0.05 }));
+    panel.append(numericRow({ label: "Mount depth (frac of body)", key: "mountDepthFrac", min: 0.2, max: 0.9, step: 0.05 }));
 
     panel.append(sectionTitle("Cost loadings (%)"));
     panel.append(numericRow({ label: "Waste / offcuts", key: "wastePct", min: 0, max: 40, step: 1, unit: "%" }));

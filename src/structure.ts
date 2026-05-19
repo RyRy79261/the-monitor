@@ -85,10 +85,21 @@ export function buildBom(cfg: Config): Bom {
   let rtr: V3 = [+rW / 2, yC + rH / 2, -d];
 
   // Tilt: rotate the whole shell backward around the front-bottom edge (X axis,
-  // y = 0, z = 0). Lounge floor stays level on the ground.
+  // y = 0, z = 0). Positive tiltDeg leans the top of the screen AWAY from the
+  // viewer (toward -Z), like a CRT angled up for someone sitting in front of it.
   if (cfg.variant === "tilted" && cfg.tiltDeg !== 0) {
     const rad = (cfg.tiltDeg * Math.PI) / 180;
-    [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => rotX(p, rad)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+    [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => rotX(p, -rad)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+  }
+
+  // Mount / pedestal: lift the whole shell up onto a short central foot so the
+  // body has clearance under backward tilt (rear corner would otherwise dip
+  // below the ground). The mount is intentionally much smaller than the body's
+  // bottom face in plan, mimicking a CRT swivel base.
+  const mountH = cfg.includeMount ? Math.max(0, cfg.mountHeightM) : 0;
+  if (mountH > 0) {
+    const lift: V3 = [0, mountH, 0];
+    [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => add(p, lift)) as [V3, V3, V3, V3, V3, V3, V3, V3];
   }
 
   const frame: FrameBoard[] = [];
@@ -214,6 +225,42 @@ export function buildBom(cfg: Config): Bom {
       areaM2: bezelArea,
       billedAreaM2: bezelArea,
     });
+  }
+
+  // Mount pedestal — short, central foot that the body sits on. Sized as a
+  // fraction of the body's bottom-face footprint so it stays smaller than it.
+  if (cfg.includeMount && mountH > 0) {
+    const wFrac = Math.min(0.95, Math.max(0.1, cfg.mountWidthFrac));
+    const dFrac = Math.min(0.95, Math.max(0.1, cfg.mountDepthFrac));
+    const mW = Math.min(fW, rW) * wFrac;
+    const mD = d * dFrac;
+    const cz = -d / 2;
+    const mbl: V3 = [-mW / 2, 0, cz + mD / 2];
+    const mbr: V3 = [+mW / 2, 0, cz + mD / 2];
+    const mkl: V3 = [-mW / 2, 0, cz - mD / 2];
+    const mkr: V3 = [+mW / 2, 0, cz - mD / 2];
+    const mtl: V3 = [-mW / 2, mountH, cz + mD / 2];
+    const mtr: V3 = [+mW / 2, mountH, cz + mD / 2];
+    const mTkl: V3 = [-mW / 2, mountH, cz - mD / 2];
+    const mTkr: V3 = [+mW / 2, mountH, cz - mD / 2];
+
+    push("Mount post FL", cfg.frameBoardId, mbl, mtl);
+    push("Mount post FR", cfg.frameBoardId, mbr, mtr);
+    push("Mount post RL", cfg.frameBoardId, mkl, mTkl);
+    push("Mount post RR", cfg.frameBoardId, mkr, mTkr);
+    push("Mount top front", cfg.frameBoardId, mtl, mtr);
+    push("Mount top rear", cfg.frameBoardId, mTkl, mTkr);
+    push("Mount top left", cfg.frameBoardId, mtl, mTkl);
+    push("Mount top right", cfg.frameBoardId, mtr, mTkr);
+    push("Mount bot front", cfg.frameBoardId, mbl, mbr);
+    push("Mount bot rear", cfg.frameBoardId, mkl, mkr);
+    push("Mount bot left", cfg.frameBoardId, mbl, mkl);
+    push("Mount bot right", cfg.frameBoardId, mbr, mkr);
+
+    addPanel("Mount front panel", [mbl, mbr, mtr, mtl], cfg.claddingMaterialId);
+    addPanel("Mount rear panel", [mkr, mkl, mTkl, mTkr], cfg.claddingMaterialId);
+    addPanel("Mount left panel", [mkl, mbl, mtl, mTkl], cfg.claddingMaterialId);
+    addPanel("Mount right panel", [mbr, mkr, mTkr, mtr], cfg.claddingMaterialId);
   }
 
   return {

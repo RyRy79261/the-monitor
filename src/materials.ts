@@ -60,6 +60,10 @@ export function defaultConfig(): Config {
     includeFascia: true,
     includeRearPanel: true,
     includeFloorPanel: true,
+    includeMount: true,
+    mountHeightM: 0.15,
+    mountWidthFrac: 0.4,
+    mountDepthFrac: 0.4,
 
     wastePct: 12,
     fastenersPct: 6,
