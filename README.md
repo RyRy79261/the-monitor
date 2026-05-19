@@ -28,10 +28,10 @@ proposal.
 ## Run
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # static bundle in dist/
-npm run typecheck
+pnpm install
+pnpm dev         # http://localhost:5173
+pnpm build       # static bundle in dist/
+pnpm typecheck
 ```
 
 ## Pricing model

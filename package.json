@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Live 3D configurator and price estimator for a walk-in CRT-shaped wooden lounge structure (AfrikaBurn proposal).",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
