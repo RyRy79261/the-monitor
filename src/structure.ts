@@ -87,19 +87,25 @@ export function buildBom(cfg: Config): Bom {
   // Tilt: rotate the whole shell backward around the front-bottom edge (X axis,
   // y = 0, z = 0). Positive tiltDeg leans the top of the screen AWAY from the
   // viewer (toward -Z), like a CRT angled up for someone sitting in front of it.
-  if (cfg.variant === "tilted" && cfg.tiltDeg !== 0) {
+  // Applies whenever tiltDeg != 0 — `variant` is just a UI preset that flips
+  // the slider between 0 and a default.
+  if (cfg.tiltDeg !== 0) {
     const rad = (cfg.tiltDeg * Math.PI) / 180;
     [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => rotX(p, -rad)) as [V3, V3, V3, V3, V3, V3, V3, V3];
   }
 
-  // Mount / pedestal: lift the whole shell up onto a short central foot so the
-  // body has clearance under backward tilt (rear corner would otherwise dip
-  // below the ground). The mount is intentionally much smaller than the body's
-  // bottom face in plan, mimicking a CRT swivel base.
+  // Mount pedestal: a rectangular box on the ground that rises vertically until
+  // it makes contact with the body. The body is lifted so its lowest bottom
+  // corner rests on the mount's top face at exactly `mountHeightM` above the
+  // ground — so the pedestal always touches the structure, regardless of tilt.
   const mountH = cfg.includeMount ? Math.max(0, cfg.mountHeightM) : 0;
   if (mountH > 0) {
-    const lift: V3 = [0, mountH, 0];
-    [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => add(p, lift)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+    const minBottomY = Math.min(fbl[1], fbr[1], rbl[1], rbr[1]);
+    const lift = mountH - minBottomY;
+    if (lift !== 0) {
+      const dy: V3 = [0, lift, 0];
+      [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => add(p, dy)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+    }
   }
 
   const frame: FrameBoard[] = [];
@@ -227,13 +233,13 @@ export function buildBom(cfg: Config): Bom {
     });
   }
 
-  // Mount pedestal — short, central foot that the body sits on. Sized as a
-  // fraction of the body's bottom-face footprint so it stays smaller than it.
+  // Mount pedestal — rectangular box from ground (y=0) up to the body's lowest
+  // bottom corner (y = mountH). Footprint is inset on each side from the body's
+  // bottom face, so the mount is clearly smaller than the body in plan.
   if (cfg.includeMount && mountH > 0) {
-    const wFrac = Math.min(0.95, Math.max(0.1, cfg.mountWidthFrac));
-    const dFrac = Math.min(0.95, Math.max(0.1, cfg.mountDepthFrac));
-    const mW = Math.min(fW, rW) * wFrac;
-    const mD = d * dFrac;
+    const inset = Math.max(0, cfg.mountInsetM);
+    const mW = Math.max(0.2, Math.min(fW, rW) - 2 * inset);
+    const mD = Math.max(0.2, d - 2 * inset);
     const cz = -d / 2;
     const mbl: V3 = [-mW / 2, 0, cz + mD / 2];
     const mbr: V3 = [+mW / 2, 0, cz + mD / 2];

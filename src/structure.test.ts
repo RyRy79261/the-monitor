@@ -47,6 +47,7 @@ describe("buildBom", () => {
     const cfg = defaultConfig();
     cfg.scale = 1;
     cfg.variant = "flat";
+    cfg.tiltDeg = 0;
     const bom = buildBom(cfg);
     const bottom = bom.frame.find((p) => p.name === "Front bottom rail")!;
     const left = bom.frame.find((p) => p.name === "Front left stud")!;
@@ -72,9 +73,8 @@ describe("buildBom", () => {
 
   it("keeps frame piece lengths invariant under pure tilt", () => {
     const cfg = defaultConfig();
-    cfg.variant = "flat";
+    cfg.tiltDeg = 0;
     const flat = buildBom(cfg);
-    cfg.variant = "tilted";
     cfg.tiltDeg = 20;
     const tilted = buildBom(cfg);
     for (let i = 0; i < flat.frame.length; i++) {
@@ -82,20 +82,20 @@ describe("buildBom", () => {
     }
   });
 
-  it("front-bottom edge sits on the mount top when the mount is enabled", () => {
+  it("lowest body corner rests on the mount top at mountHeightM", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 25;
     cfg.includeMount = true;
     const { corners } = buildBom(cfg);
-    expect(corners.fbl[1]).toBeCloseTo(cfg.mountHeightM, 6);
-    expect(corners.fbr[1]).toBeCloseTo(cfg.mountHeightM, 6);
+    const minBottomY = Math.min(corners.fbl[1], corners.fbr[1], corners.rbl[1], corners.rbr[1]);
+    expect(minBottomY).toBeCloseTo(cfg.mountHeightM, 6);
   });
 
-  it("front-bottom edge sits on the ground when no mount", () => {
+  it("front-bottom edge sits on the ground when no mount and no tilt", () => {
     const cfg = defaultConfig();
-    cfg.variant = "tilted";
-    cfg.tiltDeg = 25;
+    cfg.variant = "flat";
+    cfg.tiltDeg = 0;
     cfg.includeMount = false;
     const { corners } = buildBom(cfg);
     expect(corners.fbl[1]).toBeCloseTo(0, 6);
@@ -114,19 +114,28 @@ describe("buildBom", () => {
     expect(corners.ftr[2]).toBeLessThan(-0.1);
   });
 
-  it("places the mount under the body, smaller than the bottom face", () => {
+  it("tilt applies even when variant is flat (slider is the source of truth)", () => {
+    const cfg = defaultConfig();
+    cfg.variant = "flat";
+    cfg.tiltDeg = 15;
+    cfg.includeMount = false;
+    const { corners } = buildBom(cfg);
+    expect(corners.ftl[2]).toBeLessThan(-0.1);
+  });
+
+  it("mount footprint is smaller than the body's bottom face by the inset", () => {
     const cfg = defaultConfig();
     cfg.includeMount = true;
-    cfg.mountWidthFrac = 0.4;
-    cfg.mountDepthFrac = 0.4;
+    cfg.mountInsetM = 0.5;
     const bom = buildBom(cfg);
     const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
     expect(mountPosts.length).toBe(4);
-    // Mount extents in X should be smaller than the narrower rear width.
+    // Mount X extent should be (min(fW,rW) - 2*inset) / 2 = (1.6 - 1.0) / 2 = 0.3.
+    const expectedHalfW = (Math.min(cfg.frontWidthM, cfg.rearWidthM) - 2 * cfg.mountInsetM) / 2;
     const mountXs = mountPosts.flatMap((p) => [p.start[0], p.end[0]]);
     const mountMaxAbsX = Math.max(...mountXs.map(Math.abs));
-    expect(mountMaxAbsX).toBeLessThan(cfg.rearWidthM / 2);
-    // Mount posts go from ground to mount height.
+    expect(mountMaxAbsX).toBeCloseTo(expectedHalfW, 6);
+    // Mount posts run from ground (y=0) up to mountHeightM.
     for (const post of mountPosts) {
       const ys = [post.start[1], post.end[1]].sort((a, b) => a - b);
       expect(ys[0]).toBeCloseTo(0, 6);

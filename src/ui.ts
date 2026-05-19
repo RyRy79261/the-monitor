@@ -119,12 +119,14 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     };
     flatBtn.onclick = () => {
       cfg.variant = "flat";
-      updateBtns();
+      cfg.tiltDeg = 0;
+      mount();
       onChange();
     };
     tiltBtn.onclick = () => {
       cfg.variant = "tilted";
-      updateBtns();
+      if (cfg.tiltDeg === 0) cfg.tiltDeg = 15;
+      mount();
       onChange();
     };
     updateBtns();
@@ -161,9 +163,8 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     panel.append(toggleRow("Pedestal mount", "includeMount"));
 
     panel.append(sectionTitle("Mount / pedestal"));
-    panel.append(numericRow({ label: "Mount height", key: "mountHeightM", min: 0.05, max: 0.6, step: 0.01, unit: " m" }));
-    panel.append(numericRow({ label: "Mount width (frac of rear)", key: "mountWidthFrac", min: 0.2, max: 0.9, step: 0.05 }));
-    panel.append(numericRow({ label: "Mount depth (frac of body)", key: "mountDepthFrac", min: 0.2, max: 0.9, step: 0.05 }));
+    panel.append(numericRow({ label: "Mount height", key: "mountHeightM", min: 0.1, max: 1.5, step: 0.05, unit: " m" }));
+    panel.append(numericRow({ label: "Mount inset (per side)", key: "mountInsetM", min: 0.05, max: 1.0, step: 0.05, unit: " m" }));
 
     panel.append(sectionTitle("Cost loadings (%)"));
     panel.append(numericRow({ label: "Waste / offcuts", key: "wastePct", min: 0, max: 40, step: 1, unit: "%" }));

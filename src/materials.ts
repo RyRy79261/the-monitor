@@ -61,9 +61,8 @@ export function defaultConfig(): Config {
     includeRearPanel: true,
     includeFloorPanel: true,
     includeMount: true,
-    mountHeightM: 0.15,
-    mountWidthFrac: 0.4,
-    mountDepthFrac: 0.4,
+    mountHeightM: 0.6,
+    mountInsetM: 0.5,
 
     wastePct: 12,
     fastenersPct: 6,

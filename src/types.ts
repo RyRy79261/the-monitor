@@ -42,8 +42,7 @@ export interface Config {
   includeFloorPanel: boolean;
   includeMount: boolean;
   mountHeightM: number;
-  mountWidthFrac: number;
-  mountDepthFrac: number;
+  mountInsetM: number;
 
   wastePct: number;
   fastenersPct: number;
