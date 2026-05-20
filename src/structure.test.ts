@@ -123,7 +123,7 @@ describe("buildBom", () => {
     }
   });
 
-  it("front mount posts land on the front-top edge; rear posts on the top plane", () => {
+  it("all four support posts are vertical and cap on the body top plane", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 20;
@@ -137,27 +137,48 @@ describe("buildBom", () => {
       a[0] * b[1] - a[1] * b[0],
     ];
     const nTop = cross(sub(ftr, ftl), sub(rtl, ftl));
-    const posts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
+    const posts = bom.frame.filter((p) => p.name.startsWith("Mount support"));
     expect(posts.length).toBe(4);
     for (const post of posts) {
       const top = post.start[1] > post.end[1] ? post.start : post.end;
       const bottom = post.start[1] > post.end[1] ? post.end : post.start;
-      // Post is vertical: x and z constant.
+      // Vertical: x and z constant.
       expect(top[0]).toBeCloseTo(bottom[0], 6);
       expect(top[2]).toBeCloseTo(bottom[2], 6);
-      // Bottom on the ground.
+      // Runs from the ground up to the body top plane.
       expect(bottom[1]).toBeCloseTo(0, 6);
-      const isRear = post.name.endsWith("RL") || post.name.endsWith("RR");
-      if (isRear) {
-        // Top lies on the body's top plane.
-        const dot = nTop[0] * (top[0] - ftl[0]) + nTop[1] * (top[1] - ftl[1]) + nTop[2] * (top[2] - ftl[2]);
-        expect(Math.abs(dot)).toBeLessThan(1e-6);
-      } else {
-        // Top sits exactly on the front-top edge (same y and z as ftl/ftr).
-        expect(top[1]).toBeCloseTo(ftl[1], 6);
-        expect(top[2]).toBeCloseTo(ftl[2], 6);
-      }
+      const dot = nTop[0] * (top[0] - ftl[0]) + nTop[1] * (top[1] - ftl[1]) + nTop[2] * (top[2] - ftl[2]);
+      expect(Math.abs(dot)).toBeLessThan(1e-6);
     }
+  });
+
+  it("front support posts sit at the mount's mid-depth", () => {
+    const cfg = defaultConfig();
+    cfg.variant = "tilted";
+    cfg.tiltDeg = 20;
+    cfg.includeMount = true;
+    const bom = buildBom(cfg);
+    const sillZs = bom.frame
+      .filter((p) => p.name.startsWith("Mount sill"))
+      .flatMap((r) => [r.start[2], r.end[2]]);
+    const zMid = (Math.max(...sillZs) + Math.min(...sillZs)) / 2;
+    const front = bom.frame.filter((p) => p.name === "Mount support FL" || p.name === "Mount support FR");
+    expect(front.length).toBe(2);
+    for (const post of front) {
+      expect(post.start[2]).toBeCloseTo(zMid, 6);
+      expect(post.end[2]).toBeCloseTo(zMid, 6);
+    }
+  });
+
+  it("mount can widen up to the body's front face width", () => {
+    const cfg = defaultConfig();
+    cfg.includeMount = true;
+    cfg.mountInsetM = 0;
+    const bom = buildBom(cfg);
+    const sillXs = bom.frame
+      .filter((p) => p.name.startsWith("Mount sill"))
+      .flatMap((r) => [r.start[0], r.end[0]]);
+    expect(Math.max(...sillXs.map(Math.abs))).toBeCloseTo(cfg.frontWidthM / 2, 6);
   });
 
   it("respects hiddenPanels — listed panels are flagged and excluded from pricing", () => {
@@ -203,21 +224,20 @@ describe("buildBom", () => {
     expect(corners.ftl[2]).toBeLessThan(-0.1);
   });
 
-  it("mount footprint is smaller than the body's bottom face by the inset", () => {
+  it("mount width follows the front face width minus the inset", () => {
     const cfg = defaultConfig();
     cfg.includeMount = true;
     cfg.mountInsetM = 0.5;
     const bom = buildBom(cfg);
-    const mountPosts = bom.frame.filter((p) => p.name.startsWith("Mount post"));
-    expect(mountPosts.length).toBe(4);
-    const expectedHalfW = (Math.min(cfg.frontWidthM, cfg.rearWidthM) - 2 * cfg.mountInsetM) / 2;
-    const mountXs = mountPosts.flatMap((p) => [p.start[0], p.end[0]]);
-    const mountMaxAbsX = Math.max(...mountXs.map(Math.abs));
-    expect(mountMaxAbsX).toBeCloseTo(expectedHalfW, 6);
-    // Bottom of every mount post is on the ground.
-    for (const post of mountPosts) {
-      const minY = Math.min(post.start[1], post.end[1]);
-      expect(minY).toBeCloseTo(0, 6);
+    const sill = bom.frame.filter((p) => p.name.startsWith("Mount sill"));
+    expect(sill.length).toBe(4);
+    const expectedHalfW = (cfg.frontWidthM - 2 * cfg.mountInsetM) / 2;
+    const sillXs = sill.flatMap((p) => [p.start[0], p.end[0]]);
+    expect(Math.max(...sillXs.map(Math.abs))).toBeCloseTo(expectedHalfW, 6);
+    // Every sill rail sits on the ground.
+    for (const rail of sill) {
+      expect(rail.start[1]).toBeCloseTo(0, 6);
+      expect(rail.end[1]).toBeCloseTo(0, 6);
     }
   });
 });

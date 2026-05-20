@@ -95,19 +95,20 @@ export function buildBom(cfg: Config): Bom {
   }
 
   // Mount pedestal: a rectangular box on the ground that rises up to the body.
-  // Its FRONT edge is parked directly under the body's front-top edge so the
-  // two front posts can rise vertically and land exactly on that edge (instead
-  // of poking through the front panel / screen). The mount top follows the
-  // body's (planar) bottom face so the pedestal stays in contact with the body
-  // — no gap, even when tilted. `mountHeightM` sets the height of the lowest
-  // mount shoulder (the body is lifted so the lowest shoulder corner sits at
-  // exactly mountHeightM above the ground).
+  // Its front edge sits under the body's front-top edge. The mount top follows
+  // the body's (planar) bottom face so the pedestal stays in contact with the
+  // body — no gap, even when tilted. `mountHeightM` sets the height of the
+  // lowest mount shoulder (the body is lifted so the lowest shoulder corner
+  // sits at exactly mountHeightM above the ground). Width can open up to the
+  // body's front face width; depth is clamped so the box stays under the body.
   const mountInset = Math.max(0, cfg.mountInsetM);
-  const mountW = Math.max(0.2, Math.min(fW, rW) - 2 * mountInset);
-  const mountD = Math.max(0.2, d - 2 * mountInset);
-  // A vertical translation (the lift below) never changes z, so the front-top
-  // edge z is fixed here, before the lift.
+  const mountW = Math.max(0.2, fW - 2 * mountInset);
+  // A vertical translation (the lift below) never changes z, so these z values
+  // are fixed here, before the lift. Depth is clamped so the rear edge does
+  // not run out behind the body's rear-bottom edge.
   const mountZFront = ftl[2];
+  const availDepth = Math.max(0.2, ftl[2] - rbl[2]);
+  const mountD = Math.max(0.2, Math.min(d - 2 * mountInset, availDepth));
   const mountZRear = mountZFront - mountD;
   if (cfg.includeMount && cfg.mountHeightM > 0) {
     // Body bottom plane normal from three of the bottom corners (all 4 are
@@ -255,12 +256,12 @@ export function buildBom(cfg: Config): Bom {
     });
   }
 
-  // Mount pedestal — rectangular footprint on the ground, front edge parked
-  // under the body's front-top edge. The two FRONT posts rise vertically and
-  // land exactly on the front-top edge of the tilted body (clear of the front
-  // panel / screen). The two REAR posts continue up to the body's top plane,
-  // acting as full-height structural columns. Mount CLADDING terminates at the
-  // body-bottom plane via "shoulder" rails.
+  // Mount pedestal — a rectangular cladded box (sill on the ground, shoulder
+  // rails on the body-bottom plane) plus four vertical SUPPORT posts that run
+  // from the ground all the way up to the body's top panel (ceiling). The box
+  // footprint stays put; the front pair of support posts sit at the box's
+  // mid-depth (not the front corners), the rear pair at the rear corners.
+  // All four posts are perfectly vertical and cap on the ceiling plane.
   if (cfg.includeMount && cfg.mountHeightM > 0) {
     const nB = cross(sub(fbr, fbl), sub(rbl, fbl));
     const nT = cross(sub(ftr, ftl), sub(rtl, ftl));
@@ -274,9 +275,7 @@ export function buildBom(cfg: Config): Bom {
     const xR = +mountW / 2;
     const zF = mountZFront;
     const zR = mountZRear;
-    // The front-top edge (ftl→ftr) is horizontal at y = ftl[1], z = ftl[2];
-    // front posts at z = zF (= ftl[2]) rise straight up to it.
-    const frontEdgeY = ftl[1];
+    const zMid = (zF + zR) / 2;
 
     const mbl: V3 = [xL, 0, zF];
     const mbr: V3 = [xR, 0, zF];
@@ -286,24 +285,23 @@ export function buildBom(cfg: Config): Bom {
     const mtr: V3 = [xR, bottomY(xR, zF), zF];
     const mTkl: V3 = [xL, bottomY(xL, zR), zR];
     const mTkr: V3 = [xR, bottomY(xR, zR), zR];
-    // Front posts land on the body's front-top edge; rear posts on the top plane.
-    const mRoofFL: V3 = [xL, frontEdgeY, zF];
-    const mRoofFR: V3 = [xR, frontEdgeY, zF];
-    const mRoofRL: V3 = [xL, topY(xL, zR), zR];
-    const mRoofRR: V3 = [xR, topY(xR, zR), zR];
 
-    push("Mount post FL", cfg.frameBoardId, mbl, mRoofFL);
-    push("Mount post FR", cfg.frameBoardId, mbr, mRoofFR);
-    push("Mount post RL", cfg.frameBoardId, mkl, mRoofRL);
-    push("Mount post RR", cfg.frameBoardId, mkr, mRoofRR);
-    push("Mount shoulder front", cfg.frameBoardId, mtl, mtr);
-    push("Mount shoulder rear", cfg.frameBoardId, mTkl, mTkr);
-    push("Mount shoulder left", cfg.frameBoardId, mtl, mTkl);
-    push("Mount shoulder right", cfg.frameBoardId, mtr, mTkr);
+    // Box frame — sill on the ground, shoulder on the body-bottom plane.
     push("Mount sill front", cfg.frameBoardId, mbl, mbr);
     push("Mount sill rear", cfg.frameBoardId, mkl, mkr);
     push("Mount sill left", cfg.frameBoardId, mbl, mkl);
     push("Mount sill right", cfg.frameBoardId, mbr, mkr);
+    push("Mount shoulder front", cfg.frameBoardId, mtl, mtr);
+    push("Mount shoulder rear", cfg.frameBoardId, mTkl, mTkr);
+    push("Mount shoulder left", cfg.frameBoardId, mtl, mTkl);
+    push("Mount shoulder right", cfg.frameBoardId, mtr, mTkr);
+
+    // Support posts — vertical, ground → ceiling. Front pair at mid-depth,
+    // rear pair at the rear corners.
+    push("Mount support FL", cfg.frameBoardId, [xL, 0, zMid], [xL, topY(xL, zMid), zMid]);
+    push("Mount support FR", cfg.frameBoardId, [xR, 0, zMid], [xR, topY(xR, zMid), zMid]);
+    push("Mount support RL", cfg.frameBoardId, [xL, 0, zR], [xL, topY(xL, zR), zR]);
+    push("Mount support RR", cfg.frameBoardId, [xR, 0, zR], [xR, topY(xR, zR), zR]);
 
     addPanel("Mount front panel", [mbl, mbr, mtr, mtl], cfg.claddingMaterialId);
     addPanel("Mount rear panel", [mkr, mkl, mTkl, mTkr], cfg.claddingMaterialId);
