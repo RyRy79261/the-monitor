@@ -5,6 +5,7 @@ import { buildBom, computeScreenSide } from "./structure.ts";
 describe("computeScreenSide", () => {
   it("respects the screenRatio when bezel permits", () => {
     const cfg = defaultConfig();
+    cfg.scale = 1;
     cfg.frontWidthM = 2.0;
     cfg.frontHeightM = 2.0;
     cfg.bezelMinM = 0.05;
@@ -14,6 +15,7 @@ describe("computeScreenSide", () => {
 
   it("clamps to the bezel-enforced maximum", () => {
     const cfg = defaultConfig();
+    cfg.scale = 1;
     cfg.frontWidthM = 2.0;
     cfg.frontHeightM = 2.0;
     cfg.bezelMinM = 0.2;
