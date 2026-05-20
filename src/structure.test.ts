@@ -86,44 +86,40 @@ describe("buildBom", () => {
     }
   });
 
-  it("lowest mount shoulder equals mountHeightM and body bottom clears ground", () => {
+  it("mount box height equals mountHeightM and the body rests on the box top", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 25;
     cfg.includeMount = true;
     const bom = buildBom(cfg);
-    const shoulders = bom.frame.filter((p) => p.name.startsWith("Mount shoulder"));
-    const ys = shoulders.flatMap((r) => [r.start[1], r.end[1]]);
-    expect(Math.min(...ys)).toBeCloseTo(cfg.mountHeightM, 6);
+    const topRails = bom.frame.filter((p) => p.name.startsWith("Mount top"));
+    expect(topRails.length).toBe(4);
+    for (const rail of topRails) {
+      expect(rail.start[1]).toBeCloseTo(cfg.mountHeightM, 6);
+      expect(rail.end[1]).toBeCloseTo(cfg.mountHeightM, 6);
+    }
+    // The body's lowest bottom corner rests exactly on the box top.
     const { corners } = bom;
     const minBottomY = Math.min(corners.fbl[1], corners.fbr[1], corners.rbl[1], corners.rbr[1]);
-    expect(minBottomY).toBeGreaterThan(0);
+    expect(minBottomY).toBeCloseTo(cfg.mountHeightM, 6);
   });
 
-  it("mount shoulders lie on the body's bottom plane (no gap)", () => {
+  it("front and back box widths are independent and centred on x = 0", () => {
     const cfg = defaultConfig();
-    cfg.variant = "tilted";
-    cfg.tiltDeg = 20;
     cfg.includeMount = true;
+    cfg.mountFrontWidthM = 2.2;
+    cfg.mountBackWidthM = 1.0;
     const bom = buildBom(cfg);
-    const { fbl, fbr, rbl } = bom.corners;
-    const sub = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-    const cross = (a: [number, number, number], b: [number, number, number]): [number, number, number] => [
-      a[1] * b[2] - a[2] * b[1],
-      a[2] * b[0] - a[0] * b[2],
-      a[0] * b[1] - a[1] * b[0],
-    ];
-    const n = cross(sub(fbr, fbl), sub(rbl, fbl));
-    const shoulders = bom.frame.filter((p) => p.name.startsWith("Mount shoulder"));
-    for (const rail of shoulders) {
-      for (const pt of [rail.start, rail.end]) {
-        const dot = n[0] * (pt[0] - fbl[0]) + n[1] * (pt[1] - fbl[1]) + n[2] * (pt[2] - fbl[2]);
-        expect(Math.abs(dot)).toBeLessThan(1e-6);
-      }
-    }
+    const front = bom.frame.find((p) => p.name === "Mount sill front")!;
+    const rear = bom.frame.find((p) => p.name === "Mount sill rear")!;
+    expect(Math.abs(front.start[0] - front.end[0])).toBeCloseTo(2.2, 6);
+    expect(Math.abs(rear.start[0] - rear.end[0])).toBeCloseTo(1.0, 6);
+    // Centred: the two x-coords of each rail are mirror images.
+    expect(front.start[0]).toBeCloseTo(-front.end[0], 6);
+    expect(rear.start[0]).toBeCloseTo(-rear.end[0], 6);
   });
 
-  it("all four support posts are vertical and cap on the body top plane", () => {
+  it("all four support poles are vertical and cap on the body top plane", () => {
     const cfg = defaultConfig();
     cfg.variant = "tilted";
     cfg.tiltDeg = 20;
@@ -150,35 +146,6 @@ describe("buildBom", () => {
       const dot = nTop[0] * (top[0] - ftl[0]) + nTop[1] * (top[1] - ftl[1]) + nTop[2] * (top[2] - ftl[2]);
       expect(Math.abs(dot)).toBeLessThan(1e-6);
     }
-  });
-
-  it("front support posts sit at the mount's mid-depth", () => {
-    const cfg = defaultConfig();
-    cfg.variant = "tilted";
-    cfg.tiltDeg = 20;
-    cfg.includeMount = true;
-    const bom = buildBom(cfg);
-    const sillZs = bom.frame
-      .filter((p) => p.name.startsWith("Mount sill"))
-      .flatMap((r) => [r.start[2], r.end[2]]);
-    const zMid = (Math.max(...sillZs) + Math.min(...sillZs)) / 2;
-    const front = bom.frame.filter((p) => p.name === "Mount support FL" || p.name === "Mount support FR");
-    expect(front.length).toBe(2);
-    for (const post of front) {
-      expect(post.start[2]).toBeCloseTo(zMid, 6);
-      expect(post.end[2]).toBeCloseTo(zMid, 6);
-    }
-  });
-
-  it("mount can widen up to the body's front face width", () => {
-    const cfg = defaultConfig();
-    cfg.includeMount = true;
-    cfg.mountInsetM = 0;
-    const bom = buildBom(cfg);
-    const sillXs = bom.frame
-      .filter((p) => p.name.startsWith("Mount sill"))
-      .flatMap((r) => [r.start[0], r.end[0]]);
-    expect(Math.max(...sillXs.map(Math.abs))).toBeCloseTo(cfg.frontWidthM / 2, 6);
   });
 
   it("respects hiddenPanels — listed panels are flagged and excluded from pricing", () => {
@@ -224,36 +191,13 @@ describe("buildBom", () => {
     expect(corners.ftl[2]).toBeLessThan(-0.1);
   });
 
-  it("mountFrontExtendM slides the mount front edge toward the screen front", () => {
-    const base = defaultConfig();
-    base.variant = "tilted";
-    base.tiltDeg = 20;
-    base.includeMount = true;
-    base.mountFrontExtendM = 0;
-    const extended = { ...base, mountFrontExtendM: 0.4 };
-    const frontZ = (cfg: ReturnType<typeof defaultConfig>): number =>
-      Math.max(
-        ...buildBom(cfg)
-          .frame.filter((p) => p.name.startsWith("Mount sill"))
-          .flatMap((r) => [r.start[2], r.end[2]]),
-      );
-    expect(frontZ(extended)).toBeGreaterThan(frontZ(base));
-    // Never extends past the body's front-bottom edge (z = 0).
-    const wayOut = { ...base, mountFrontExtendM: 99 };
-    expect(frontZ(wayOut)).toBeLessThanOrEqual(1e-6);
-  });
-
-  it("mount width follows the front face width minus the inset", () => {
+  it("every mount sill rail sits flat on the ground", () => {
     const cfg = defaultConfig();
+    cfg.variant = "tilted";
+    cfg.tiltDeg = 18;
     cfg.includeMount = true;
-    cfg.mountInsetM = 0.5;
-    const bom = buildBom(cfg);
-    const sill = bom.frame.filter((p) => p.name.startsWith("Mount sill"));
+    const sill = buildBom(cfg).frame.filter((p) => p.name.startsWith("Mount sill"));
     expect(sill.length).toBe(4);
-    const expectedHalfW = (cfg.frontWidthM - 2 * cfg.mountInsetM) / 2;
-    const sillXs = sill.flatMap((p) => [p.start[0], p.end[0]]);
-    expect(Math.max(...sillXs.map(Math.abs))).toBeCloseTo(expectedHalfW, 6);
-    // Every sill rail sits on the ground.
     for (const rail of sill) {
       expect(rail.start[1]).toBeCloseTo(0, 6);
       expect(rail.end[1]).toBeCloseTo(0, 6);

@@ -41,12 +41,12 @@ export interface Config {
   includeRearPanel: boolean;
   includeFloorPanel: boolean;
   includeMount: boolean;
+  /** Height of the mount box (ground to box top). */
   mountHeightM: number;
-  mountInsetM: number;
-  /** Distance the mount's front edge slides forward from the body's
-   *  front-top edge toward the screen front (clamped at the front-bottom
-   *  edge). 0 keeps it under the front-top edge. */
-  mountFrontExtendM: number;
+  /** Width of the mount box at its front edge. */
+  mountFrontWidthM: number;
+  /** Width of the mount box at its back edge. */
+  mountBackWidthM: number;
 
   humanShown: boolean;
   humanHeightM: number;

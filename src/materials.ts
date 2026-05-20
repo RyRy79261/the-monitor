@@ -69,8 +69,8 @@ export function defaultConfig(): Config {
     includeFloorPanel: true,
     includeMount: true,
     mountHeightM: 0.6,
-    mountInsetM: 0.3,
-    mountFrontExtendM: 0,
+    mountFrontWidthM: 1.8,
+    mountBackWidthM: 1.4,
 
     humanShown: true,
     humanHeightM: 1.75,
