@@ -104,10 +104,12 @@ export function buildBom(cfg: Config): Bom {
   const mountInset = Math.max(0, cfg.mountInsetM);
   const mountW = Math.max(0.2, fW - 2 * mountInset);
   // A vertical translation (the lift below) never changes z, so these z values
-  // are fixed here, before the lift. Depth is clamped so the rear edge does
-  // not run out behind the body's rear-bottom edge.
-  const mountZFront = ftl[2];
-  const availDepth = Math.max(0.2, ftl[2] - rbl[2]);
+  // are fixed here, before the lift. The front edge starts under the body's
+  // front-top edge and can slide forward toward the screen front, clamped at
+  // the front-bottom edge. Depth is clamped so the rear edge does not run out
+  // behind the body's rear-bottom edge.
+  const mountZFront = Math.min(fbl[2], ftl[2] + Math.max(0, cfg.mountFrontExtendM));
+  const availDepth = Math.max(0.2, mountZFront - rbl[2]);
   const mountD = Math.max(0.2, Math.min(d - 2 * mountInset, availDepth));
   const mountZRear = mountZFront - mountD;
   if (cfg.includeMount && cfg.mountHeightM > 0) {
@@ -275,7 +277,9 @@ export function buildBom(cfg: Config): Bom {
     const xR = +mountW / 2;
     const zF = mountZFront;
     const zR = mountZRear;
-    const zMid = (zF + zR) / 2;
+    // Front support posts ride the box mid-depth, but never forward of the
+    // body's front-top edge — that would push them through the screen.
+    const zMid = Math.min((zF + zR) / 2, ftl[2]);
 
     const mbl: V3 = [xL, 0, zF];
     const mbr: V3 = [xR, 0, zF];

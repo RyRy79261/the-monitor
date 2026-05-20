@@ -43,6 +43,10 @@ export interface Config {
   includeMount: boolean;
   mountHeightM: number;
   mountInsetM: number;
+  /** Distance the mount's front edge slides forward from the body's
+   *  front-top edge toward the screen front (clamped at the front-bottom
+   *  edge). 0 keeps it under the front-top edge. */
+  mountFrontExtendM: number;
 
   humanShown: boolean;
   humanHeightM: number;

@@ -224,6 +224,25 @@ describe("buildBom", () => {
     expect(corners.ftl[2]).toBeLessThan(-0.1);
   });
 
+  it("mountFrontExtendM slides the mount front edge toward the screen front", () => {
+    const base = defaultConfig();
+    base.variant = "tilted";
+    base.tiltDeg = 20;
+    base.includeMount = true;
+    base.mountFrontExtendM = 0;
+    const extended = { ...base, mountFrontExtendM: 0.4 };
+    const frontZ = (cfg: ReturnType<typeof defaultConfig>): number =>
+      Math.max(
+        ...buildBom(cfg)
+          .frame.filter((p) => p.name.startsWith("Mount sill"))
+          .flatMap((r) => [r.start[2], r.end[2]]),
+      );
+    expect(frontZ(extended)).toBeGreaterThan(frontZ(base));
+    // Never extends past the body's front-bottom edge (z = 0).
+    const wayOut = { ...base, mountFrontExtendM: 99 };
+    expect(frontZ(wayOut)).toBeLessThanOrEqual(1e-6);
+  });
+
   it("mount width follows the front face width minus the inset", () => {
     const cfg = defaultConfig();
     cfg.includeMount = true;

@@ -70,6 +70,7 @@ export function defaultConfig(): Config {
     includeMount: true,
     mountHeightM: 0.6,
     mountInsetM: 0.3,
+    mountFrontExtendM: 0,
 
     humanShown: true,
     humanHeightM: 1.75,
