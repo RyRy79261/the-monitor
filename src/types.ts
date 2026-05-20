@@ -40,6 +40,19 @@ export interface Config {
   includeFascia: boolean;
   includeRearPanel: boolean;
   includeFloorPanel: boolean;
+  includeMount: boolean;
+  /** Height of the mount box (ground to box top). */
+  mountHeightM: number;
+  /** Width of the mount box at its front edge. */
+  mountFrontWidthM: number;
+  /** Width of the mount box at its back edge. */
+  mountBackWidthM: number;
+
+  humanShown: boolean;
+  humanHeightM: number;
+
+  /** Names of cladding panels to hide from render and BoM. */
+  hiddenPanels: string[];
 
   wastePct: number;
   fastenersPct: number;
@@ -69,6 +82,9 @@ export interface CladdingPanel {
   areaM2: number;
   /** Area used for cost (full bounding rect on front panel; equals areaM2 elsewhere). */
   billedAreaM2: number;
+  /** Hidden panels are kept in the BoM listing so the UI can offer a visibility
+   *  toggle, but they are excluded from render and pricing. */
+  hidden?: boolean;
 }
 
 export interface Bom {

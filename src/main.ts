@@ -16,6 +16,8 @@ function recompute() {
     queued = false;
     const bom = buildBom(cfg);
     const cost = priceBom(bom, cfg);
+    scene.setHumanVisible(cfg.humanShown);
+    scene.setHumanHeight(cfg.humanHeightM);
     scene.render(bom);
     ui.refresh(bom, cost);
   });

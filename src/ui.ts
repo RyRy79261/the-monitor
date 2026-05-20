@@ -119,12 +119,14 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     };
     flatBtn.onclick = () => {
       cfg.variant = "flat";
-      updateBtns();
+      cfg.tiltDeg = 0;
+      mount();
       onChange();
     };
     tiltBtn.onclick = () => {
       cfg.variant = "tilted";
-      updateBtns();
+      if (cfg.tiltDeg === 0) cfg.tiltDeg = 15;
+      mount();
       onChange();
     };
     updateBtns();
@@ -158,6 +160,16 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     panel.append(toggleRow("Front fascia (bezel)", "includeFascia"));
     panel.append(toggleRow("Rear cladding panel", "includeRearPanel"));
     panel.append(toggleRow("Bottom cladding panel", "includeFloorPanel"));
+    panel.append(toggleRow("Pedestal mount", "includeMount"));
+
+    panel.append(sectionTitle("Mount / pedestal"));
+    panel.append(numericRow({ label: "Mount height", key: "mountHeightM", min: 0.1, max: 1.5, step: 0.05, unit: " m" }));
+    panel.append(numericRow({ label: "Mount front width", key: "mountFrontWidthM", min: 0.2, max: 3.0, step: 0.05, unit: " m" }));
+    panel.append(numericRow({ label: "Mount back width", key: "mountBackWidthM", min: 0.2, max: 3.0, step: 0.05, unit: " m" }));
+
+    panel.append(sectionTitle("Human scale reference"));
+    panel.append(toggleRow("Show human", "humanShown"));
+    panel.append(numericRow({ label: "Human height", key: "humanHeightM", min: 0.6, max: 2.2, step: 0.05, unit: " m" }));
 
     panel.append(sectionTitle("Cost loadings (%)"));
     panel.append(numericRow({ label: "Waste / offcuts", key: "wastePct", min: 0, max: 40, step: 1, unit: "%" }));
@@ -193,6 +205,30 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     print.onclick = () => window.print();
     actions.append(csv, json, print);
     bomEl.append(actions);
+
+    const panelVisTitle = document.createElement("h3");
+    panelVisTitle.textContent = "Panel visibility";
+    bomEl.append(panelVisTitle);
+    for (const p of bom.cladding) {
+      const row = document.createElement("div");
+      row.className = "row toggle";
+      const lab = document.createElement("label");
+      lab.textContent = p.name;
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !p.hidden;
+      cb.onchange = () => {
+        const list = cfg.hiddenPanels;
+        if (cb.checked) {
+          cfg.hiddenPanels = list.filter((n) => n !== p.name);
+        } else if (!list.includes(p.name)) {
+          cfg.hiddenPanels = [...list, p.name];
+        }
+        onChange();
+      };
+      row.append(lab, cb);
+      bomEl.append(row);
+    }
 
     const title = document.createElement("h3");
     title.textContent = "Bill of materials";

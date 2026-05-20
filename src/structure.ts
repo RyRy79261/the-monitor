@@ -85,10 +85,33 @@ export function buildBom(cfg: Config): Bom {
   let rtr: V3 = [+rW / 2, yC + rH / 2, -d];
 
   // Tilt: rotate the whole shell backward around the front-bottom edge (X axis,
-  // y = 0, z = 0). Lounge floor stays level on the ground.
-  if (cfg.variant === "tilted" && cfg.tiltDeg !== 0) {
+  // y = 0, z = 0). Positive tiltDeg leans the top of the screen AWAY from the
+  // viewer (toward -Z), like a CRT angled up for someone sitting in front of it.
+  // Applies whenever tiltDeg != 0 — `variant` is just a UI preset that flips
+  // the slider between 0 and a default.
+  if (cfg.tiltDeg !== 0) {
     const rad = (cfg.tiltDeg * Math.PI) / 180;
-    [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => rotX(p, rad)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+    [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => rotX(p, -rad)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+  }
+
+  // Mount pedestal: a flat-topped box centred on x = 0 with a directly
+  // adjustable height and independent front / back widths. It sits under the
+  // body's top-face footprint so the four support poles can rise straight up
+  // to the ceiling (the body's top panel). `mountHeightM` is the box height;
+  // the body is lifted so its lowest bottom corner rests on the box top.
+  const mountFrontW = Math.max(0.2, cfg.mountFrontWidthM);
+  const mountBackW = Math.max(0.2, cfg.mountBackWidthM);
+  // The vertical lift below never changes z, so the footprint depth (taken
+  // from the body's top-face edges) is fixed here, before the lift.
+  const mountZFront = ftl[2];
+  const mountZRear = rtl[2];
+  if (cfg.includeMount && cfg.mountHeightM > 0) {
+    const minBottom = Math.min(fbl[1], fbr[1], rbl[1], rbr[1]);
+    const lift = cfg.mountHeightM - minBottom;
+    if (lift !== 0) {
+      const dy: V3 = [0, lift, 0];
+      [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr] = [fbl, fbr, ftl, ftr, rbl, rbr, rtl, rtr].map((p) => add(p, dy)) as [V3, V3, V3, V3, V3, V3, V3, V3];
+    }
   }
 
   const frame: FrameBoard[] = [];
@@ -214,6 +237,64 @@ export function buildBom(cfg: Config): Bom {
       areaM2: bezelArea,
       billedAreaM2: bezelArea,
     });
+  }
+
+  // Mount pedestal — a flat-topped cladded box (sill rails on the ground, top
+  // rails at the box height) with four vertical support poles. Each pole runs
+  // from the ground straight up to the body's top panel (the "ceiling"); the
+  // lower portion doubles as the box's corner post. Front width and back
+  // width are independent, so the box footprint can be a trapezoid.
+  if (cfg.includeMount && cfg.mountHeightM > 0) {
+    const nT = cross(sub(ftr, ftl), sub(rtl, ftl));
+    const topY = (x: number, z: number): number => {
+      if (Math.abs(nT[1]) < 1e-9) return ftl[1];
+      return ftl[1] - (nT[0] * (x - ftl[0]) + nT[2] * (z - ftl[2])) / nT[1];
+    };
+    const h = cfg.mountHeightM;
+    const fxL = -mountFrontW / 2;
+    const fxR = +mountFrontW / 2;
+    const bxL = -mountBackW / 2;
+    const bxR = +mountBackW / 2;
+    const zF = mountZFront;
+    const zR = mountZRear;
+
+    // Footprint corners — sill (ground) and box top.
+    const sFL: V3 = [fxL, 0, zF];
+    const sFR: V3 = [fxR, 0, zF];
+    const sRL: V3 = [bxL, 0, zR];
+    const sRR: V3 = [bxR, 0, zR];
+    const tFL: V3 = [fxL, h, zF];
+    const tFR: V3 = [fxR, h, zF];
+    const tRL: V3 = [bxL, h, zR];
+    const tRR: V3 = [bxR, h, zR];
+
+    // Box frame — sill rails on the ground, top rails at the box height.
+    push("Mount sill front", cfg.frameBoardId, sFL, sFR);
+    push("Mount sill rear", cfg.frameBoardId, sRL, sRR);
+    push("Mount sill left", cfg.frameBoardId, sFL, sRL);
+    push("Mount sill right", cfg.frameBoardId, sFR, sRR);
+    push("Mount top front", cfg.frameBoardId, tFL, tFR);
+    push("Mount top rear", cfg.frameBoardId, tRL, tRR);
+    push("Mount top left", cfg.frameBoardId, tFL, tRL);
+    push("Mount top right", cfg.frameBoardId, tFR, tRR);
+
+    // Support poles — vertical, ground → ceiling.
+    push("Mount support FL", cfg.frameBoardId, sFL, [fxL, topY(fxL, zF), zF]);
+    push("Mount support FR", cfg.frameBoardId, sFR, [fxR, topY(fxR, zF), zF]);
+    push("Mount support RL", cfg.frameBoardId, sRL, [bxL, topY(bxL, zR), zR]);
+    push("Mount support RR", cfg.frameBoardId, sRR, [bxR, topY(bxR, zR), zR]);
+
+    // Cladding — 4 box sides.
+    addPanel("Mount front panel", [sFL, sFR, tFR, tFL], cfg.claddingMaterialId);
+    addPanel("Mount rear panel", [sRR, sRL, tRL, tRR], cfg.claddingMaterialId);
+    addPanel("Mount left panel", [sRL, sFL, tFL, tRL], cfg.claddingMaterialId);
+    addPanel("Mount right panel", [sFR, sRR, tRR, tFR], cfg.claddingMaterialId);
+  }
+
+  if (cfg.hiddenPanels && cfg.hiddenPanels.length > 0) {
+    for (const panel of cladding) {
+      if (cfg.hiddenPanels.includes(panel.name)) panel.hidden = true;
+    }
   }
 
   return {
