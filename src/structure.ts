@@ -95,15 +95,20 @@ export function buildBom(cfg: Config): Bom {
   }
 
   // Mount pedestal: a rectangular box on the ground that rises up to the body.
-  // The mount TOP follows the body's (planar) bottom face so the pedestal stays
-  // in contact with the body everywhere within its footprint — no gap, even
-  // when the body is tilted backward. `mountHeightM` sets the height of the
-  // lowest mount post (the body is lifted so that the lowest mount-top corner
-  // sits at exactly mountHeightM above the ground).
+  // Its FRONT edge is parked directly under the body's front-top edge so the
+  // two front posts can rise vertically and land exactly on that edge (instead
+  // of poking through the front panel / screen). The mount top follows the
+  // body's (planar) bottom face so the pedestal stays in contact with the body
+  // — no gap, even when tilted. `mountHeightM` sets the height of the lowest
+  // mount shoulder (the body is lifted so the lowest shoulder corner sits at
+  // exactly mountHeightM above the ground).
   const mountInset = Math.max(0, cfg.mountInsetM);
   const mountW = Math.max(0.2, Math.min(fW, rW) - 2 * mountInset);
   const mountD = Math.max(0.2, d - 2 * mountInset);
-  const mountCz = -d / 2;
+  // A vertical translation (the lift below) never changes z, so the front-top
+  // edge z is fixed here, before the lift.
+  const mountZFront = ftl[2];
+  const mountZRear = mountZFront - mountD;
   if (cfg.includeMount && cfg.mountHeightM > 0) {
     // Body bottom plane normal from three of the bottom corners (all 4 are
     // coplanar). Solve for y on the plane at arbitrary (x, z).
@@ -114,9 +119,10 @@ export function buildBom(cfg: Config): Bom {
     };
     const xL = -mountW / 2;
     const xR = +mountW / 2;
-    const zF = mountCz + mountD / 2;
-    const zR = mountCz - mountD / 2;
-    const minTop = Math.min(planeY(xL, zF), planeY(xR, zF), planeY(xL, zR), planeY(xR, zR));
+    const minTop = Math.min(
+      planeY(xL, mountZFront), planeY(xR, mountZFront),
+      planeY(xL, mountZRear), planeY(xR, mountZRear),
+    );
     const lift = cfg.mountHeightM - minTop;
     if (lift !== 0) {
       const dy: V3 = [0, lift, 0];
@@ -249,28 +255,28 @@ export function buildBom(cfg: Config): Bom {
     });
   }
 
-  // Mount pedestal — rectangular footprint on the ground. The two REAR corner
-  // posts continue all the way up to the body's top plane so they act as full-
-  // height structural columns. The two FRONT posts terminate where they hit
-  // the body's front face plane — going any higher would push them out
-  // through the (backward-tilted) front panel. The mount CLADDING terminates
-  // at the body-bottom plane via "shoulder" rails — that boundary is where
-  // the pedestal stops being visible from outside.
+  // Mount pedestal — rectangular footprint on the ground, front edge parked
+  // under the body's front-top edge. The two FRONT posts rise vertically and
+  // land exactly on the front-top edge of the tilted body (clear of the front
+  // panel / screen). The two REAR posts continue up to the body's top plane,
+  // acting as full-height structural columns. Mount CLADDING terminates at the
+  // body-bottom plane via "shoulder" rails.
   if (cfg.includeMount && cfg.mountHeightM > 0) {
     const nB = cross(sub(fbr, fbl), sub(rbl, fbl));
     const nT = cross(sub(ftr, ftl), sub(rtl, ftl));
-    const nF = cross(sub(fbr, fbl), sub(ftl, fbl));
     const planeY = (n: V3, ref: V3) => (x: number, z: number): number => {
       if (Math.abs(n[1]) < 1e-9) return ref[1];
       return ref[1] - (n[0] * (x - ref[0]) + n[2] * (z - ref[2])) / n[1];
     };
     const bottomY = planeY(nB, fbl);
     const topY = planeY(nT, ftl);
-    const frontY = planeY(nF, fbl);
     const xL = -mountW / 2;
     const xR = +mountW / 2;
-    const zF = mountCz + mountD / 2;
-    const zR = mountCz - mountD / 2;
+    const zF = mountZFront;
+    const zR = mountZRear;
+    // The front-top edge (ftl→ftr) is horizontal at y = ftl[1], z = ftl[2];
+    // front posts at z = zF (= ftl[2]) rise straight up to it.
+    const frontEdgeY = ftl[1];
 
     const mbl: V3 = [xL, 0, zF];
     const mbr: V3 = [xR, 0, zF];
@@ -280,10 +286,9 @@ export function buildBom(cfg: Config): Bom {
     const mtr: V3 = [xR, bottomY(xR, zF), zF];
     const mTkl: V3 = [xL, bottomY(xL, zR), zR];
     const mTkr: V3 = [xR, bottomY(xR, zR), zR];
-    // Front posts cap at the front face (no clipping through the panel);
-    // rear posts cap at the body top plane.
-    const mRoofFL: V3 = [xL, frontY(xL, zF), zF];
-    const mRoofFR: V3 = [xR, frontY(xR, zF), zF];
+    // Front posts land on the body's front-top edge; rear posts on the top plane.
+    const mRoofFL: V3 = [xL, frontEdgeY, zF];
+    const mRoofFR: V3 = [xR, frontEdgeY, zF];
     const mRoofRL: V3 = [xL, topY(xL, zR), zR];
     const mRoofRR: V3 = [xR, topY(xR, zR), zR];
 
