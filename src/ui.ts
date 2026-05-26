@@ -196,7 +196,7 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
     actions.className = "bom-actions";
     const csv = document.createElement("button");
     csv.textContent = "EXPORT CSV";
-    csv.onclick = () => downloadCsv(bom, cost);
+    csv.onclick = () => downloadCsv(cost);
     const json = document.createElement("button");
     json.textContent = "EXPORT JSON";
     json.onclick = () => downloadJson(cfg, bom, cost);
@@ -245,11 +245,11 @@ export function createUI(cfg: Config, onChange: OnChange): UI {
       if (line.group !== "Extras") subMat += line.subtotalZar;
       const tr = document.createElement("tr");
       tr.innerHTML =
-        `<td>${line.group}</td><td>${line.label}</td>` +
-        `<td class='num'>${line.qty}</td><td>${line.unit}</td>` +
+        `<td>${escHtml(line.group)}</td><td>${escHtml(line.label)}</td>` +
+        `<td class='num'>${line.qty}</td><td>${escHtml(line.unit)}</td>` +
         `<td class='num'>${line.unitPriceZar.toFixed(0)}</td>` +
         `<td class='num'>${line.subtotalZar.toFixed(0)}</td>` +
-        `<td>${line.note ?? ""}</td>`;
+        `<td>${escHtml(line.note ?? "")}</td>`;
       tbody.append(tr);
     }
     const subRow = document.createElement("tr");
@@ -328,7 +328,16 @@ function buildPriceTable(onChange: OnChange): HTMLElement {
   return wrap;
 }
 
-function downloadCsv(_bom: Bom, cost: Cost) {
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function downloadCsv(cost: Cost) {
   const rows = [
     ["Group", "Item", "Qty", "Unit", "Unit Price (R)", "Subtotal (R)", "Notes"],
     ...cost.lines.map((l) => [
