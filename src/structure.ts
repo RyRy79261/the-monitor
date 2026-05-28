@@ -291,7 +291,7 @@ export function buildBom(cfg: Config): Bom {
     addPanel("Mount right panel", [sFR, sRR, tRR, tFR], cfg.claddingMaterialId);
   }
 
-  if (cfg.hiddenPanels && cfg.hiddenPanels.length > 0) {
+  if (cfg.hiddenPanels.length > 0) {
     for (const panel of cladding) {
       if (cfg.hiddenPanels.includes(panel.name)) panel.hidden = true;
     }
