@@ -2,11 +2,6 @@ import type { BoardSize, SheetMaterial, Config } from "./types.ts";
 
 /**
  * Indicative retail ZAR prices for SA pine PAR (planed all round) and sheet
- * goods at major SA hardware suppliers. Values are user-editable in the UI;
- * treat them as starting estimates, not quotes.
- */
-/**
- * Indicative retail ZAR prices for SA pine PAR (planed all round) and sheet
  * goods at major SA hardware suppliers. Cross-checked May 2026 against MS
  * Timbers wholesale, Bob Shop, BUCO and Gumtree retail (incl. 15% VAT, with a
  * ~65% PAR premium over structural S5 where applicable). Region-dependent;
